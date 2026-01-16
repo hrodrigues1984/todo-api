@@ -1,6 +1,6 @@
 {
   "name": "todo-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Todo API with NestJS and PostgreSQL 17",
   "scripts": {
     "build": "nest build",

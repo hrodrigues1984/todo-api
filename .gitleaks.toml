@@ -1,0 +1,15 @@
+# Gitleaks Configuration for Todo API
+title = "DevSecOps Pipeline Secret Detection Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist to prevent false positives"
+paths = [
+    '''node_modules''',
+    '''dist''',
+    '''coverage''',
+    '''\.git''',
+    '''bun\.lock'''
+]
