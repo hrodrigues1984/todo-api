@@ -95,11 +95,12 @@ jobs:
       - name: Trivy Image Scan
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-          trivy image \
+          podman save -o image.tar ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }}
+          trivy image --input image.tar \
             --exit-code 1 \
             --severity CRITICAL \
-            --ignore-unfixed \
-            ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }}
+            --ignore-unfixed
+          rm -f image.tar
 
       - name: Push Image with Podman
         run: |
