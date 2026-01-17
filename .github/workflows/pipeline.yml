@@ -71,7 +71,8 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           if git rev-parse "$VERSION_TAG" >/dev/null 2>&1; then
-            echo "Tag $VERSION_TAG already exists, skipping."
+            echo "Tag $VERSION_TAG already exists." >&2
+            exit 1
           else
             git tag "$VERSION_TAG"
             git push origin "$VERSION_TAG"
