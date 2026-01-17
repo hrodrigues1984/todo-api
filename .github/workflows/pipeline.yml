@@ -62,6 +62,16 @@ jobs:
             echo "Package version not found in package.json" >&2
             exit 1
           fi
+          HEAD_VERSION=$(git show HEAD:package.json | bun -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
+          if [ "$VERSION" != "$HEAD_VERSION" ]; then
+            echo "package.json version in the workspace ($VERSION) does not match the committed version ($HEAD_VERSION)." >&2
+            echo "Commit and push the updated package.json before tagging." >&2
+            exit 1
+          fi
+          if ! git diff --quiet; then
+            echo "Working tree is dirty. Commit and push changes before tagging." >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create Git Tag (main only)
