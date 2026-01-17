@@ -1,40 +1,40 @@
 # Stage 1: Build Stage
-FROM node:20-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Install all dependencies (including dev)
-COPY package*.json ./
-RUN npm ci
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
 
 # Build the Nest.js application (outputs to /dist)
 COPY . .
-RUN npm run build
+RUN bun run build
 
 # Stage 2: Dependency Resolution
 # This stage installs ONLY production dependencies
-FROM node:20-alpine AS deps
+FROM oven/bun:1-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile --production
 
 # Stage 3: Production Runner
-FROM node:20-alpine AS runner
+FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 
 # Security: Set NODE_ENV to production
 ENV NODE_ENV=production
 
 # Copy production dependencies from deps stage
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --from=deps --chown=bun:bun /app/node_modules ./node_modules
 # Copy built artifacts from builder stage
-COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=bun:bun /app/dist ./dist
 # Copy package.json for runtime scripts if needed
-COPY --from=builder --chown=node:node /app/package.json ./
+COPY --from=builder --chown=bun:bun /app/package.json ./
 
 # Security: Drop privileges
-USER node
+USER bun
 
 # Expose API port
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+CMD ["bun", "run", "dist/main.js"]

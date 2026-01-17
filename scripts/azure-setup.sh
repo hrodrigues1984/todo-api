@@ -28,11 +28,23 @@ az acr create \
   --sku Basic \
   --admin-enabled false
 
-echo "Creating App Registration..."
-APP_ID=$(az ad app create --display-name $APP_NAME --query appId -o tsv)
+echo "Getting or Creating App Registration..."
+APP_ID=$(az ad app list --display-name $APP_NAME --query "[0].appId" -o tsv)
+if [ -z "$APP_ID" ]; then
+  APP_ID=$(az ad app create --display-name $APP_NAME --query appId -o tsv)
+  echo "Created new App Registration: $APP_ID"
+else
+  echo "Using existing App Registration: $APP_ID"
+fi
 
-echo "Creating Service Principal..."
-SP_ID=$(az ad sp create --id $APP_ID --query id -o tsv)
+echo "Getting or Creating Service Principal..."
+SP_EXISTS=$(az ad sp list --filter "appId eq '$APP_ID'" --query "[0].id" -o tsv)
+if [ -z "$SP_EXISTS" ]; then
+  SP_ID=$(az ad sp create --id $APP_ID --query id -o tsv)
+  echo "Created new Service Principal: $SP_ID"
+else
+  echo "Using existing Service Principal: $SP_EXISTS"
+fi
 
 # ==============================================================================
 # ROLE ASSIGNMENT
@@ -59,7 +71,7 @@ az ad app federated-credential create \
     \"subject\":\"repo:$GITHUB_ORG/$GITHUB_REPO:ref:refs/heads/main\",
     \"description\":\"Authorize GitHub Actions to deploy from main branch\",
     \"audiences\":[\"api://AzureADTokenExchange\"]
-  }"
+  }" 2>/dev/null || echo "Federated credential for main branch already exists, skipping."
 
 echo "Creating Federated Credential for pull requests..."
 az ad app federated-credential create \
@@ -70,7 +82,7 @@ az ad app federated-credential create \
     \"subject\":\"repo:$GITHUB_ORG/$GITHUB_REPO:pull_request\",
     \"description\":\"Authorize GitHub Actions for PR checks\",
     \"audiences\":[\"api://AzureADTokenExchange\"]
-  }"
+  }" 2>/dev/null || echo "Federated credential for pull requests already exists, skipping."
 
 # ==============================================================================
 # OUTPUT
