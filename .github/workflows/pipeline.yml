@@ -67,7 +67,7 @@ jobs:
       - name: Create Git Tag (main only)
         if: github.ref == 'refs/heads/main'
         run: |
-          VERSION_TAG="v${{ steps.package_version.outputs.version }}"
+          VERSION_TAG="${{ steps.package_version.outputs.version }}"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           if git rev-parse "$VERSION_TAG" >/dev/null 2>&1; then
@@ -111,20 +111,27 @@ jobs:
 
       - name: Build Image with Podman
         run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            IMAGE_TAG="${{ steps.package_version.outputs.version }}"
+          else
+            IMAGE_TAG="${{ env.IMAGE_TAG }}"
+          fi
+          echo "Using image tag: $IMAGE_TAG"
           podman build \
             --layers \
-            -t ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }} \
+            -t ${{ env.ACR_NAME }}.azurecr.io/todo-api:$IMAGE_TAG \
             -f ./deploy/Dockerfile \
             .
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            podman tag ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }} \
-              ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ steps.package_version.outputs.version }}
-          fi
 
       - name: Trivy Image Scan
         run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            IMAGE_TAG="${{ steps.package_version.outputs.version }}"
+          else
+            IMAGE_TAG="${{ env.IMAGE_TAG }}"
+          fi
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-          podman save -o image.tar ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }}
+          podman save -o image.tar ${{ env.ACR_NAME }}.azurecr.io/todo-api:$IMAGE_TAG
           trivy image --input image.tar \
             --exit-code 1 \
             --severity CRITICAL \
@@ -132,11 +139,9 @@ jobs:
           rm -f image.tar
 
       - name: Push Image with Podman
+        if: github.ref == 'refs/heads/main'
         run: |
-          podman push ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            podman push ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ steps.package_version.outputs.version }}
-          fi
+          podman push ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ steps.package_version.outputs.version }}
 
   # ==============================================================================
   # JOB 3: ACR CLEANUP (COST OPTIMIZATION)
