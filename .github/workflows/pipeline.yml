@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -51,6 +53,23 @@ jobs:
 
       - name: Install Dependencies
         run: bun install --frozen-lockfile
+
+      - name: Read Package Version
+        id: package_version
+        run: echo "version=$(bun -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          VERSION_TAG="v${{ steps.package_version.outputs.version }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          if git rev-parse "$VERSION_TAG" >/dev/null 2>&1; then
+            echo "Tag $VERSION_TAG already exists, skipping."
+          else
+            git tag "$VERSION_TAG"
+            git push origin "$VERSION_TAG"
+          fi
 
       - name: Semgrep SAST
         run: |
@@ -91,6 +110,10 @@ jobs:
             -t ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }} \
             -f ./deploy/Dockerfile \
             .
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            podman tag ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }} \
+              ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ steps.package_version.outputs.version }}
+          fi
 
       - name: Trivy Image Scan
         run: |
@@ -105,6 +128,9 @@ jobs:
       - name: Push Image with Podman
         run: |
           podman push ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ env.IMAGE_TAG }}
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            podman push ${{ env.ACR_NAME }}.azurecr.io/todo-api:${{ steps.package_version.outputs.version }}
+          fi
 
   # ==============================================================================
   # JOB 3: ACR CLEANUP (COST OPTIMIZATION)
