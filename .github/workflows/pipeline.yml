@@ -56,7 +56,7 @@ jobs:
 
       - name: Read Package Version
         id: package_version
-        run: echo "version=$(bun -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+        run: echo "version=$(bun -e 'console.log(require(\"./package.json\").version)')" >> $GITHUB_OUTPUT
 
       - name: Create Git Tag (main only)
         if: github.ref == 'refs/heads/main'
